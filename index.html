@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VKOSPI = 곡선 아래 넓이</title>
+<title>VKOSPI, 곡선 아래 '넓이'로 이해하기</title>
 <style>
   :root {
     --bg: #FAF9F5; --ink: #21201C; --muted: #6B6A63; --line: #E2E0D7;
     --coral: #D85A30; --coral-fill: rgba(216,90,48,0.28); --coral-dark: #712B13;
     --teal: #1D9E75; --teal-fill: rgba(29,158,117,0.25); --teal-dark: #085041;
     --purple: #534AB7; --purple-dark: #26215C;
+    --ok: #2E9E5B; --warn: #D9A400; --hot: #E07020; --crisis: #C93A2E;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -19,10 +20,15 @@
   }
   main { max-width: 820px; margin: 0 auto; }
   h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); font-size: 14px; margin: 6px 0 30px; }
+  .sub { color: var(--muted); font-size: 14.5px; margin: 6px 0 16px; }
+  .analogy {
+    background: rgba(83,74,183,0.06); border: 1px solid rgba(83,74,183,0.22);
+    border-radius: 12px; padding: 14px 18px; font-size: 14px; margin-bottom: 28px;
+    color: var(--purple-dark);
+  }
   .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
-  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-  .chart-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .chart-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .chart-sub { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
   svg { width: 100%; height: auto; display: block; }
   svg text { font-family: inherit; }
   .weight-strip {
@@ -30,10 +36,18 @@
     background: rgba(83,74,183,0.07); border: 1px dashed rgba(83,74,183,0.35);
     border-radius: 10px; padding: 8px 14px; margin: 0 0 18px;
   }
-  .weight-strip code { font-family: Georgia, serif; font-style: italic; font-size: 14px; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 14px; }
+  .presets button {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 999px; padding: 6px 14px; transition: all .15s;
+  }
+  .presets button:hover { border-color: var(--purple); color: var(--purple-dark); }
+  .presets button.on { background: var(--purple); border-color: var(--purple); color: #fff; }
   .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 24px; margin-top: 4px; }
   @media (max-width: 560px) { .controls { grid-template-columns: 1fr; } }
   .ctrl label { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .ctrl label small { font-weight: 400; color: var(--muted); }
   .ctrl label span { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .ctrl.vol label span { color: var(--purple); }
   .ctrl.put label span { color: var(--coral); }
@@ -47,6 +61,21 @@
   .ro.big .v { font-size: 32px; color: var(--purple-dark); }
   .ro.put .v { color: var(--coral-dark); }
   .ro.call .v { color: var(--teal-dark); }
+  .gauge { margin-top: 16px; }
+  .gauge-bar { position: relative; height: 12px; border-radius: 6px; overflow: hidden; display: flex; }
+  .gauge-bar i { display: block; height: 100%; }
+  .gauge-marker {
+    position: relative; height: 0; margin-top: -18px; margin-bottom: 18px;
+    transition: none;
+  }
+  .gauge-marker b {
+    position: absolute; top: -8px; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent;
+    border-top: 9px solid var(--ink);
+  }
+  .gauge-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .gauge-label { font-size: 13.5px; margin-top: 8px; }
+  .gauge-label b { font-size: 14.5px; }
   #zeroMsg {
     display: none; font-size: 12.5px; color: var(--purple-dark);
     background: rgba(83,74,183,0.07); border-radius: 8px; padding: 6px 12px; margin-top: 12px;
@@ -54,67 +83,148 @@
   .legend { display: flex; gap: 18px; font-size: 12.5px; color: var(--muted); margin-top: 8px; align-items: center; flex-wrap: wrap; }
   .sw { display: inline-block; width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
   .legend label { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
-  .note { margin-top: 26px; font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 14px; }
+  .steps { margin: 26px 0 18px; padding-left: 0; list-style: none; counter-reset: step; }
+  .steps li {
+    counter-increment: step; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 16px 12px 46px; margin-bottom: 8px; font-size: 13.5px; position: relative;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 14px; top: 12px;
+    width: 22px; height: 22px; border-radius: 50%; background: var(--purple); color: #fff;
+    font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  details { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 12px; font-size: 13.5px; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 14px; user-select: none; }
+  details[open] summary { margin-bottom: 10px; }
+  details .body { color: #3d3c36; }
+  dl.gloss dt { font-weight: 700; margin-top: 10px; }
+  dl.gloss dt:first-child { margin-top: 0; }
+  dl.gloss dd { color: var(--muted); margin-left: 0; }
+  .term { border-bottom: 1px dotted var(--purple); cursor: help; }
+  code.f { font-family: Georgia, serif; font-style: italic; }
 </style>
 </head>
 <body>
 <main>
-  <h1>VKOSPI = 가중 곡선 아래 '넓이'</h1>
-  <p class="sub">공식의 합(&Sigma;)은 아래 곡선 넓이의 리만합 근사 &mdash; 즉 <b>VKOSPI&sup2; &asymp; 색칠된 면적</b>입니다. 변동성을 0까지 내려 넓이가 사라지는 극한도 확인해 보세요.</p>
+  <h1>VKOSPI, '공포지수'는 어떻게 만들어질까?</h1>
+  <p class="sub">
+    <b>VKOSPI</b>(브이코스피)는 앞으로 <b>30일 동안 코스피200 지수가 얼마나 크게 출렁일지</b>에 대한 시장의 예상치입니다.
+    시장이 불안할수록 치솟아서 '공포지수'라고도 불려요. 이 페이지에서는 그 숫자가 어디서 나오는지 &mdash;
+    <b>옵션 가격 곡선 아래의 '넓이'</b>라는 사실을 &mdash; 슬라이더로 직접 만져보며 확인할 수 있습니다.
+  </p>
+  <div class="analogy">
+    &#128161; <b>비유 한 줄:</b> <span class="term" title="정해진 가격에 사고팔 수 있는 권리. 주가가 크게 움직일 때 가치가 커져서 '보험'에 비유합니다.">옵션</span>은
+    주가가 크게 움직일 때 보상받는 <b>'보험'</b>입니다. 시장이 불안하면 보험료(옵션 가격)가 비싸지죠.
+    그 보험료들을 전부 모아 하나의 숫자로 만든 것이 VKOSPI &mdash; 즉 <b>시장 전체가 지금 내고 있는 '불안 보험료'의 크기</b>입니다.
+  </div>
 
   <div class="card">
-    <div class="chart-title">&#9312; 원재료: OTM 옵션 중간호가 Q(K)</div>
-    <div class="chart-sub">K&#8320; 왼쪽은 풋, 오른쪽은 콜 가격 &mdash; ATM 근처에서 가장 비싸고 양쪽 끝으로 갈수록 싸짐</div>
+    <div class="chart-title">&#9312; 원재료: 옵션 가격 곡선</div>
+    <div class="chart-sub">
+      가로축은 <span class="term" title="보험이 발동되는 기준 지수 레벨 (K)">행사가</span>,
+      세로축은 옵션 가격(보험료)입니다. 현재 지수(K&#8320;=F) 근처의 보험이 가장 비싸고 멀어질수록 싸져요.
+      왼쪽 빨간 곡선은 <b>하락 보험(풋)</b>, 오른쪽 초록 곡선은 <b>상승 쪽(콜)</b>입니다.
+    </div>
     <svg id="c1" viewBox="0 0 700 170"></svg>
   </div>
 
-  <div class="weight-strip">&darr; &nbsp;여기에 <code>2e<sup>rT</sup> / (T&middot;K&sup2;)</code> 가중을 곱하면 &mdash; 낮은 행사가일수록 크게 증폭 &darr;</div>
+  <div class="weight-strip">&darr; &nbsp;여기에 수학적 가중치를 곱해 곡선을 다듬으면 &mdash; <b>아래쪽(하락 보험)일수록 크게 증폭</b>됩니다 &darr;</div>
 
   <div class="card">
-    <div class="chart-title">&#9313; 가중 곡선 f(K) &mdash; 이 곡선 아래 넓이가 곧 &sigma;&sup2; (30일 분산)</div>
-    <div class="chart-sub">공식의 &Sigma; &Delta;K&middot;e<sup>rT</sup>Q(K)/K&sup2; = 세로 막대들의 넓이 합 = 색칠 면적의 근사</div>
+    <div class="chart-title">&#9313; 가중 곡선 &mdash; 이 곡선 아래 '넓이'가 곧 변동성</div>
+    <div class="chart-sub">색칠된 면적이 넓을수록 VKOSPI가 높습니다. 아래 시나리오 버튼과 슬라이더로 직접 바꿔보세요.</div>
     <svg id="c2" viewBox="0 0 700 250"></svg>
     <div class="legend">
-      <span><span class="sw" style="background:var(--coral-fill);border:1px solid var(--coral)"></span>풋 기여 면적</span>
-      <span><span class="sw" style="background:var(--teal-fill);border:1px solid var(--teal)"></span>콜 기여 면적</span>
-      <label><input type="checkbox" id="bars" checked> 리만합 막대(실제 이산 산출) 표시</label>
+      <span><span class="sw" style="background:var(--coral-fill);border:1px solid var(--coral)"></span>하락 보험(풋) 기여 면적</span>
+      <span><span class="sw" style="background:var(--teal-fill);border:1px solid var(--teal)"></span>상승 쪽(콜) 기여 면적</span>
+      <label><input type="checkbox" id="bars"> 리만합 막대(실제 이산 산출) 표시</label>
     </div>
 
-    <div class="controls" style="margin-top:20px">
+    <div class="presets" id="presets">
+      <button data-p="22,12,12" class="on">&#128524; 평상시</button>
+      <button data-p="45,28,6">&#128561; 폭락장 (공포)</button>
+      <button data-p="8,4,2">&#128564; 초저변동성</button>
+      <button data-p="0,0,0">&#129514; 변동성 0 (극한)</button>
+    </div>
+
+    <div class="controls">
       <div class="ctrl vol">
-        <label>ATM 내재변동성 <span id="volV">22%</span></label>
+        <label>시장 전반 불안감 <small>(ATM 내재변동성)</small> <span id="volV">22%</span></label>
         <input type="range" id="vol" min="0" max="50" value="22" step="1">
       </div>
       <div class="ctrl put">
-        <label>풋 스큐 (&minus;25%당 %p) <span id="pskewV">+12%p</span></label>
+        <label>하락 공포 <small>(풋 스큐)</small> <span id="pskewV">+12%p</span></label>
         <input type="range" id="pskew" min="-30" max="30" value="12" step="1">
       </div>
       <div class="ctrl call">
-        <label>콜 스큐 (+25%당 %p) <span id="cskewV">+12%p</span></label>
+        <label>상승 과열 기대 <small>(콜 스큐)</small> <span id="cskewV">+12%p</span></label>
         <input type="range" id="cskew" min="-30" max="30" value="12" step="1">
       </div>
     </div>
 
     <div class="readouts">
-      <div class="ro big"><span class="k">VKOSPI</span><span class="v" id="roV">&ndash;</span></div>
+      <div class="ro big"><span class="k">VKOSPI (지금 설정 기준)</span><span class="v" id="roV">&ndash;</span></div>
       <div class="ro"><span class="k">&sigma;&sup2; (면적, 연율 분산)</span><span class="v" id="roS">&ndash;</span></div>
       <div class="ro put"><span class="k">풋 쪽 면적</span><span class="v" id="roPA">&ndash;</span></div>
       <div class="ro call"><span class="k">콜 쪽 면적</span><span class="v" id="roCA">&ndash;</span></div>
       <div class="ro"><span class="k">풋 면적 비중</span><span class="v" id="roP">&ndash;</span></div>
     </div>
-    <div id="zeroMsg">변동성 0 &rarr; 모든 OTM 옵션이 무가치 &rarr; 곡선이 바닥에 붙고 넓이 = 0 &rarr; VKOSPI = 0. 옵션 프리미엄이 존재하는 한 VKOSPI는 0이 될 수 없다는 뜻이기도 합니다.</div>
+
+    <div class="gauge">
+      <div class="gauge-bar">
+        <i style="width:21.5%;background:var(--ok)"></i>
+        <i style="width:14.3%;background:var(--warn)"></i>
+        <i style="width:21.4%;background:var(--hot)"></i>
+        <i style="width:42.8%;background:var(--crisis)"></i>
+      </div>
+      <div class="gauge-marker"><b id="gm" style="left:0%"></b></div>
+      <div class="gauge-ticks"><span>0</span><span style="margin-left:-4%">15</span><span style="margin-left:-9%">25</span><span style="margin-left:2%">40</span><span>70</span></div>
+      <div class="gauge-label" id="gaugeLabel"></div>
+      <div class="gauge-ticks" style="justify-content:flex-start;gap:14px;margin-top:6px">
+        <span style="color:var(--ok)">&#9632; 15 미만 안정</span>
+        <span style="color:var(--warn)">&#9632; 15~25 보통</span>
+        <span style="color:var(--hot)">&#9632; 25~40 불안</span>
+        <span style="color:var(--crisis)">&#9632; 40 이상 위기 &mdash; 2020년 코로나 폭락 땐 69까지 치솟았어요</span>
+      </div>
+    </div>
+    <div id="zeroMsg">변동성 0 &rarr; 모든 보험(옵션)이 무가치 &rarr; 곡선이 바닥에 붙고 넓이 = 0 &rarr; VKOSPI = 0. 뒤집어 말하면, 옵션 보험료가 존재하는 한 VKOSPI는 절대 0이 될 수 없습니다.</div>
   </div>
 
-  <p class="note">
-    <b>실험 제안:</b> &#9312; 변동성을 0으로 내려 넓이가 소멸하는 극한을 확인 &rarr; &#9313; 풋/콜 스큐를 같은 값으로 두고 번갈아 올려 비교 &rarr; &#9314; 스큐를 마이너스로 내려 날개가 ATM보다 싸지는 역스큐 상태 확인.
-    마이너스 스큐는 OTM으로 갈수록 내재변동성이 낮아지는 상태 &mdash; 해당 날개의 곡선이 더 빨리 꺼지며 넓이가 줄고, VKOSPI가 ATM 변동성 아래로 내려갑니다.
-    스큐가 깊은 마이너스이고 ATM 변동성이 낮으면 날개 변동성이 0 바닥에 닿아 그 구간 옵션이 아예 무가치해집니다(곡선이 축에 붙는 지점).
-    같은 %p인데도 풋 스큐가 VKOSPI를 더 크게 밀어 올립니다 &mdash; 1/K&sup2; 가중이 낮은 행사가(풋 영역)를 증폭하기 때문이고,
-    이것이 &lsquo;하락 공포에 더 민감한 지수&rsquo;라는 성질의 수학적 원천입니다.<br><br>
-    단순화: 0점이 정확히 떨어지도록 F=K&#8320;=400으로 정렬해 보정항 (F/K&#8320;&minus;1)&sup2;=0인 설정입니다.
-    실제 산출에서는 F가 K&#8320;보다 약간 위에 있어 보정항이 미세 조정 역할을 하며, 행사가 격자(&Delta;K=10)가 거칠수록 극저변동성 구간에서 이산합에 작은 잔차가 남습니다.
-    단일 만기(T=30/365) 근사로 30일 보간은 생략, r=3% 가정. 실제 KOSPI200 표면은 풋 스큐가 콜 스큐보다 훨씬 가파른 게 평상시 모습입니다.
-  </p>
+  <ol class="steps">
+    <li><b>&#128561; 폭락장</b> 버튼을 눌러보세요. '하락 공포(풋)' 쪽 빨간 면적이 급팽창하며 VKOSPI가 위기 구간으로 튀어오릅니다.</li>
+    <li><b>&#129514; 변동성 0</b> 버튼으로 넓이가 완전히 사라지는 극한을 확인해 보세요.</li>
+    <li>하락 공포와 상승 기대 슬라이더를 <b>같은 값</b>으로 두고 번갈아 올려보세요. 같은 %p인데도 <b>풋(하락) 쪽이 VKOSPI를 더 크게 밀어올립니다</b> &mdash; 이것이 '하락 공포에 더 민감한 지수'라 불리는 이유입니다.</li>
+    <li>스큐를 마이너스로 내리면 바깥쪽 보험이 오히려 싸지는 '역스큐' 상태가 되어 VKOSPI가 시장 전반 불안감보다 낮아집니다.</li>
+  </ol>
+
+  <details>
+    <summary>&#128218; 용어 미니 사전</summary>
+    <div class="body">
+      <dl class="gloss">
+        <dt>옵션</dt><dd>정해진 가격에 사고팔 수 있는 권리. 주가가 크게 움직일 때 가치가 커져 '보험'에 비유합니다.</dd>
+        <dt>행사가 (K)</dt><dd>그 보험이 발동되는 기준 지수 레벨.</dd>
+        <dt>풋 / 콜</dt><dd>하락에 대비하는 보험이 풋, 상승에 베팅하는 쪽이 콜.</dd>
+        <dt>ATM / OTM</dt><dd>현재 지수와 같은 행사가면 ATM(등가격), 멀리 떨어져 있으면 OTM(외가격). VKOSPI는 OTM 옵션들의 가격을 재료로 씁니다.</dd>
+        <dt>내재변동성</dt><dd>옵션 가격 안에 녹아 있는 '시장이 예상하는 출렁임의 크기'.</dd>
+        <dt>스큐</dt><dd>행사가에 따라 내재변동성이 기울어진 정도. 풋 스큐가 크다 = 하락 보험이 유난히 비싸다 = 하락 공포가 크다.</dd>
+        <dt>중간호가</dt><dd>매수 호가와 매도 호가의 중간값. 실제 산출에 쓰는 '공정한 가격'.</dd>
+        <dt>리만합</dt><dd>곡선 아래 넓이를 잘게 쪼갠 막대들의 합으로 근사하는 수학적 방법. 위 체크박스로 볼 수 있어요.</dd>
+      </dl>
+    </div>
+  </details>
+
+  <details>
+    <summary>&#128300; 수식이 궁금하다면 (심화)</summary>
+    <div class="body">
+      &#9312;의 옵션 중간호가 Q(K)에 가중치 <code class="f">2e<sup>rT</sup> / (T&middot;K&sup2;)</code>를 곱한 것이 &#9313;의 곡선 f(K)입니다.
+      1/K&sup2; 항 때문에 낮은 행사가(풋 영역)가 증폭되며, 공식의 합 &Sigma; &Delta;K&middot;e<sup>rT</sup>Q(K)/K&sup2;는
+      세로 막대들의 넓이 합 = 색칠 면적의 리만합 근사입니다. 그 넓이가 &sigma;&sup2;(30일 분산)이고, 제곱근에 100을 곱하면 VKOSPI.<br><br>
+      <b>단순화 사항:</b> 0점이 정확히 떨어지도록 F=K&#8320;=400으로 정렬해 보정항 (F/K&#8320;&minus;1)&sup2;=0인 설정입니다.
+      실제 산출에서는 F가 K&#8320;보다 약간 위에 있어 보정항이 미세 조정 역할을 하며, 행사가 격자(&Delta;K=10)가 거칠수록 극저변동성 구간에서 이산합에 작은 잔차가 남습니다.
+      단일 만기(T=30/365) 근사로 30일 보간은 생략, r=3% 가정. 실제 KOSPI200 변동성 표면은 풋 스큐가 콜 스큐보다 훨씬 가파른 것이 평상시 모습입니다.
+      스큐가 깊은 마이너스이고 ATM 변동성이 낮으면 날개 변동성이 0 바닥에 닿아 그 구간 옵션이 아예 무가치해집니다(곡선이 축에 붙는 지점).
+    </div>
+  </details>
 </main>
 
 <script>
@@ -169,6 +279,13 @@ function axis(yBase,h){
   return s;
 }
 function pathOf(pts){ return pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(''); }
+
+function bandInfo(v){
+  if(v<15)  return {name:'안정',   color:'var(--ok)',     desc:'시장이 큰 출렁임을 예상하지 않는 편안한 상태예요.'};
+  if(v<25)  return {name:'보통',   color:'var(--warn)',   desc:'평상시 수준. 역사적으로 VKOSPI는 대체로 이 근처에 머뭅니다.'};
+  if(v<40)  return {name:'불안',   color:'var(--hot)',    desc:'시장이 꽤 큰 변동을 각오하고 있는 상태입니다.'};
+  return       {name:'위기',   color:'var(--crisis)', desc:'금융위기·팬데믹급 공포 구간. 2020년 3월 코로나 폭락 때 69를 기록했습니다.'};
+}
 
 function render(){
   const sAtm=+document.getElementById('vol').value/100;
@@ -228,18 +345,37 @@ function render(){
   const callArea=area-putArea;
   const corr=(1/T)*Math.pow(F/K0-1,2);
   const sig2=Math.max(0,area-corr);
-  document.getElementById('roV').textContent=(100*Math.sqrt(sig2)).toFixed(1);
+  const vk=100*Math.sqrt(sig2);
+  document.getElementById('roV').textContent=vk.toFixed(1);
   document.getElementById('roS').textContent=sig2.toFixed(4);
   document.getElementById('roPA').textContent=putArea.toFixed(4);
   document.getElementById('roCA').textContent=callArea.toFixed(4);
-  document.getElementById('roP').textContent = area>1e-8 ? Math.round(100*putArea/area)+'%' : '&ndash;';
-  if(area<=1e-8) document.getElementById('roP').innerHTML='&ndash;';
+  document.getElementById('roP').textContent = area>1e-8 ? Math.round(100*putArea/area)+'%' : '–';
   document.getElementById('zeroMsg').style.display = sig2<1e-6 ? 'block' : 'none';
+
+  // gauge
+  const gb=bandInfo(vk);
+  document.getElementById('gm').style.left = Math.min(100, vk/70*100)+'%';
+  document.getElementById('gaugeLabel').innerHTML =
+    `지금 설정의 VKOSPI <b>${vk.toFixed(1)}</b>은(는) <b style="color:${gb.color}">${gb.name}</b> 구간 &mdash; ${gb.desc}`;
+
+  // preset highlight
+  const cur=[document.getElementById('vol').value,document.getElementById('pskew').value,document.getElementById('cskew').value].join(',');
+  document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on', b.dataset.p===cur));
 }
 document.getElementById('vol').addEventListener('input',render);
 document.getElementById('pskew').addEventListener('input',render);
 document.getElementById('cskew').addEventListener('input',render);
 document.getElementById('bars').addEventListener('change',render);
+document.querySelectorAll('#presets button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const [v,p,c]=b.dataset.p.split(',');
+    document.getElementById('vol').value=v;
+    document.getElementById('pskew').value=p;
+    document.getElementById('cskew').value=c;
+    render();
+  });
+});
 render();
 </script>
 </body>
