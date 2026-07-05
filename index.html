@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VKOSPI = 곡선 아래 넓이</title>
+<style>
+  :root {
+    --bg: #FAF9F5; --ink: #21201C; --muted: #6B6A63; --line: #E2E0D7;
+    --coral: #D85A30; --coral-fill: rgba(216,90,48,0.28); --coral-dark: #712B13;
+    --teal: #1D9E75; --teal-fill: rgba(29,158,117,0.25); --teal-dark: #085041;
+    --purple: #534AB7; --purple-dark: #26215C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, sans-serif;
+    line-height: 1.65; padding: 44px 20px 72px;
+  }
+  main { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin: 6px 0 30px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .chart-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font-family: inherit; }
+  .weight-strip {
+    text-align: center; font-size: 13.5px; color: var(--purple-dark);
+    background: rgba(83,74,183,0.07); border: 1px dashed rgba(83,74,183,0.35);
+    border-radius: 10px; padding: 8px 14px; margin: 0 0 18px;
+  }
+  .weight-strip code { font-family: Georgia, serif; font-style: italic; font-size: 14px; }
+  .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 24px; margin-top: 4px; }
+  @media (max-width: 560px) { .controls { grid-template-columns: 1fr; } }
+  .ctrl label { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .ctrl label span { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctrl.vol label span { color: var(--purple); }
+  .ctrl.put label span { color: var(--coral); }
+  .ctrl.call label span { color: var(--teal); }
+  input[type=range] { width: 100%; accent-color: var(--purple); }
+  .ctrl.put input[type=range] { accent-color: var(--coral); }
+  .ctrl.call input[type=range] { accent-color: var(--teal); }
+  .readouts { display: flex; gap: 26px; align-items: baseline; flex-wrap: wrap; margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .ro .k { font-size: 12px; color: var(--muted); display: block; }
+  .ro .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ro.big .v { font-size: 32px; color: var(--purple-dark); }
+  .ro.put .v { color: var(--coral-dark); }
+  .ro.call .v { color: var(--teal-dark); }
+  #zeroMsg {
+    display: none; font-size: 12.5px; color: var(--purple-dark);
+    background: rgba(83,74,183,0.07); border-radius: 8px; padding: 6px 12px; margin-top: 12px;
+  }
+  .legend { display: flex; gap: 18px; font-size: 12.5px; color: var(--muted); margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 13px; height: 13px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+  .legend label { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .note { margin-top: 26px; font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>VKOSPI = 가중 곡선 아래 '넓이'</h1>
+  <p class="sub">공식의 합(&Sigma;)은 아래 곡선 넓이의 리만합 근사 &mdash; 즉 <b>VKOSPI&sup2; &asymp; 색칠된 면적</b>입니다. 변동성을 0까지 내려 넓이가 사라지는 극한도 확인해 보세요.</p>
+
+  <div class="card">
+    <div class="chart-title">&#9312; 원재료: OTM 옵션 중간호가 Q(K)</div>
+    <div class="chart-sub">K&#8320; 왼쪽은 풋, 오른쪽은 콜 가격 &mdash; ATM 근처에서 가장 비싸고 양쪽 끝으로 갈수록 싸짐</div>
+    <svg id="c1" viewBox="0 0 700 170"></svg>
+  </div>
+
+  <div class="weight-strip">&darr; &nbsp;여기에 <code>2e<sup>rT</sup> / (T&middot;K&sup2;)</code> 가중을 곱하면 &mdash; 낮은 행사가일수록 크게 증폭 &darr;</div>
+
+  <div class="card">
+    <div class="chart-title">&#9313; 가중 곡선 f(K) &mdash; 이 곡선 아래 넓이가 곧 &sigma;&sup2; (30일 분산)</div>
+    <div class="chart-sub">공식의 &Sigma; &Delta;K&middot;e<sup>rT</sup>Q(K)/K&sup2; = 세로 막대들의 넓이 합 = 색칠 면적의 근사</div>
+    <svg id="c2" viewBox="0 0 700 250"></svg>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--coral-fill);border:1px solid var(--coral)"></span>풋 기여 면적</span>
+      <span><span class="sw" style="background:var(--teal-fill);border:1px solid var(--teal)"></span>콜 기여 면적</span>
+      <label><input type="checkbox" id="bars" checked> 리만합 막대(실제 이산 산출) 표시</label>
+    </div>
+
+    <div class="controls" style="margin-top:20px">
+      <div class="ctrl vol">
+        <label>ATM 내재변동성 <span id="volV">22%</span></label>
+        <input type="range" id="vol" min="0" max="50" value="22" step="1">
+      </div>
+      <div class="ctrl put">
+        <label>풋 스큐 (&minus;25%당 %p) <span id="pskewV">+12%p</span></label>
+        <input type="range" id="pskew" min="-30" max="30" value="12" step="1">
+      </div>
+      <div class="ctrl call">
+        <label>콜 스큐 (+25%당 %p) <span id="cskewV">+12%p</span></label>
+        <input type="range" id="cskew" min="-30" max="30" value="12" step="1">
+      </div>
+    </div>
+
+    <div class="readouts">
+      <div class="ro big"><span class="k">VKOSPI</span><span class="v" id="roV">&ndash;</span></div>
+      <div class="ro"><span class="k">&sigma;&sup2; (면적, 연율 분산)</span><span class="v" id="roS">&ndash;</span></div>
+      <div class="ro put"><span class="k">풋 쪽 면적</span><span class="v" id="roPA">&ndash;</span></div>
+      <div class="ro call"><span class="k">콜 쪽 면적</span><span class="v" id="roCA">&ndash;</span></div>
+      <div class="ro"><span class="k">풋 면적 비중</span><span class="v" id="roP">&ndash;</span></div>
+    </div>
+    <div id="zeroMsg">변동성 0 &rarr; 모든 OTM 옵션이 무가치 &rarr; 곡선이 바닥에 붙고 넓이 = 0 &rarr; VKOSPI = 0. 옵션 프리미엄이 존재하는 한 VKOSPI는 0이 될 수 없다는 뜻이기도 합니다.</div>
+  </div>
+
+  <p class="note">
+    <b>실험 제안:</b> &#9312; 변동성을 0으로 내려 넓이가 소멸하는 극한을 확인 &rarr; &#9313; 풋/콜 스큐를 같은 값으로 두고 번갈아 올려 비교 &rarr; &#9314; 스큐를 마이너스로 내려 날개가 ATM보다 싸지는 역스큐 상태 확인.
+    마이너스 스큐는 OTM으로 갈수록 내재변동성이 낮아지는 상태 &mdash; 해당 날개의 곡선이 더 빨리 꺼지며 넓이가 줄고, VKOSPI가 ATM 변동성 아래로 내려갑니다.
+    스큐가 깊은 마이너스이고 ATM 변동성이 낮으면 날개 변동성이 0 바닥에 닿아 그 구간 옵션이 아예 무가치해집니다(곡선이 축에 붙는 지점).
+    같은 %p인데도 풋 스큐가 VKOSPI를 더 크게 밀어 올립니다 &mdash; 1/K&sup2; 가중이 낮은 행사가(풋 영역)를 증폭하기 때문이고,
+    이것이 &lsquo;하락 공포에 더 민감한 지수&rsquo;라는 성질의 수학적 원천입니다.<br><br>
+    단순화: 0점이 정확히 떨어지도록 F=K&#8320;=400으로 정렬해 보정항 (F/K&#8320;&minus;1)&sup2;=0인 설정입니다.
+    실제 산출에서는 F가 K&#8320;보다 약간 위에 있어 보정항이 미세 조정 역할을 하며, 행사가 격자(&Delta;K=10)가 거칠수록 극저변동성 구간에서 이산합에 작은 잔차가 남습니다.
+    단일 만기(T=30/365) 근사로 30일 보간은 생략, r=3% 가정. 실제 KOSPI200 표면은 풋 스큐가 콜 스큐보다 훨씬 가파른 게 평상시 모습입니다.
+  </p>
+</main>
+
+<script>
+const F=400, K0=400, r=0.03, T=30/365, DF=Math.exp(-r*T), EG=Math.exp(r*T);
+const Kmin=280, Kmax=530, dK=10;
+const riemannKs=[]; for(let k=290;k<=520;k+=dK) riemannKs.push(k);
+
+function ncdf(x){
+  const t=1/(1+0.2316419*Math.abs(x));
+  const d=0.3989423*Math.exp(-x*x/2);
+  const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0?1-p:p;
+}
+function volAt(K,sAtm,pSkew,cSkew){
+  let v = K<F ? sAtm+(pSkew/100)*((F-K)/F)/0.25
+              : sAtm+(cSkew/100)*((K-F)/F)/0.25;
+  return Math.min(1.5,Math.max(1e-6,v));
+}
+function Q(K,sAtm,pSkew,cSkew){
+  const s=volAt(K,sAtm,pSkew,cSkew), st=s*Math.sqrt(T);
+  const d1=(Math.log(F/K)+0.5*s*s*T)/st, d2=d1-st;
+  const call=DF*(F*ncdf(d1)-K*ncdf(d2));
+  const put =DF*(K*ncdf(-d2)-F*ncdf(-d1));
+  return K<K0?put:(K>K0?call:0.5*(call+put));
+}
+function f(K,sAtm,pSkew,cSkew){ return (2/T)*EG*Q(K,sAtm,pSkew,cSkew)/(K*K); }
+
+// fixed y-scales computed at slider maxima so growth stays visible
+let ymax1=0, ymax2=0;
+for(let K=Kmin;K<=Kmax;K+=2){
+  ymax1=Math.max(ymax1,Q(K,0.50,30,30));
+  ymax2=Math.max(ymax2,f(K,0.50,30,30));
+}
+ymax1*=1.06; ymax2*=1.06;
+
+// chart geometry
+const W=700, PL=56, PR=16;
+const C1={h:170,pt:14,pb:30}, C2={h:250,pt:16,pb:30};
+const x=K=>PL+(K-Kmin)/(Kmax-Kmin)*(W-PL-PR);
+const y1=v=>C1.h-C1.pb-(v/ymax1)*(C1.h-C1.pt-C1.pb);
+const y2=v=>C2.h-C2.pb-(v/ymax2)*(C2.h-C2.pt-C2.pb);
+
+function axis(yBase,h){
+  let s=`<line x1="${PL}" y1="${yBase}" x2="${W-PR}" y2="${yBase}" stroke="#6B6A63" stroke-width="1"/>`;
+  for(const K of [300,350,400,450,500]){
+    s+=`<line x1="${x(K)}" y1="${yBase}" x2="${x(K)}" y2="${yBase+4}" stroke="#6B6A63" stroke-width="1"/>`;
+    s+=`<text x="${x(K)}" y="${yBase+18}" text-anchor="middle" font-size="11" fill="#6B6A63">${K}</text>`;
+  }
+  s+=`<text x="${W-PR}" y="${yBase+18}" text-anchor="end" font-size="11" fill="#6B6A63">행사가 K</text>`;
+  s+=`<line x1="${x(K0)}" y1="${h.pt}" x2="${x(K0)}" y2="${yBase}" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="4 4"/>`;
+  s+=`<text x="${x(K0)}" y="${h.pt-2}" text-anchor="middle" font-size="11.5" font-weight="600" fill="#633806">K&#8320;=F</text>`;
+  return s;
+}
+function pathOf(pts){ return pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(''); }
+
+function render(){
+  const sAtm=+document.getElementById('vol').value/100;
+  const pSkew=+document.getElementById('pskew').value;
+  const cSkew=+document.getElementById('cskew').value;
+  const showBars=document.getElementById('bars').checked;
+  document.getElementById('volV').textContent=Math.round(sAtm*100)+'%';
+  document.getElementById('pskewV').textContent=(pSkew>0?'+':'')+pSkew+'%p';
+  document.getElementById('cskewV').textContent=(cSkew>0?'+':'')+cSkew+'%p';
+
+  const putPts1=[],callPts1=[],putPts2=[],callPts2=[];
+  for(let K=Kmin;K<=Kmax;K+=2){
+    const q=Q(K,sAtm,pSkew,cSkew), fv=f(K,sAtm,pSkew,cSkew);
+    if(K<=K0){ putPts1.push([x(K),y1(q)]); putPts2.push([x(K),y2(fv)]); }
+    if(K>=K0){ callPts1.push([x(K),y1(q)]); callPts2.push([x(K),y2(fv)]); }
+  }
+  const b1=C1.h-C1.pb, b2=C2.h-C2.pb;
+
+  // chart 1: curves only
+  document.getElementById('c1').innerHTML =
+    axis(b1,C1)
+    +`<path d="${pathOf(putPts1)}" fill="none" stroke="var(--coral)" stroke-width="2"/>`
+    +`<path d="${pathOf(callPts1)}" fill="none" stroke="var(--teal)" stroke-width="2"/>`
+    +`<text x="${PL}" y="${C1.pt+2}" font-size="11" fill="#6B6A63">Q(K)</text>`;
+
+  // chart 2: fills + riemann bars + curves
+  const putFill=`M${x(Kmin)} ${b2} ${pathOf(putPts2).replace('M','L')} L${x(K0)} ${b2} Z`;
+  const callFill=`M${x(K0)} ${b2} ${pathOf(callPts2).replace('M','L')} L${x(Kmax)} ${b2} Z`;
+  let bars='';
+  if(showBars){
+    for(const K of riemannKs){
+      const fv=f(K,sAtm,pSkew,cSkew), yv=y2(fv);
+      if(b2-yv<0.5) continue;
+      bars+=`<rect x="${x(K-dK/2).toFixed(1)}" y="${yv.toFixed(1)}" width="${(x(K+dK/2)-x(K-dK/2)).toFixed(1)}" height="${(b2-yv).toFixed(1)}" fill="none" stroke="rgba(33,32,28,0.28)" stroke-width="0.8"/>`;
+    }
+  }
+  const peakH=b2-y2(f(385,sAtm,pSkew,cSkew));
+  const areaLabel = peakH>24
+    ? `<text x="${x(370)}" y="${(b2+y2(f(385,sAtm,pSkew,cSkew)))/2}" text-anchor="middle" font-size="13" font-weight="700" fill="#712B13">넓이 &asymp; &sigma;&sup2;</text>`
+    : '';
+  document.getElementById('c2').innerHTML =
+    `<path d="${putFill}" fill="var(--coral-fill)"/>`
+    +`<path d="${callFill}" fill="var(--teal-fill)"/>`
+    +bars
+    +`<path d="${pathOf(putPts2)}" fill="none" stroke="var(--coral)" stroke-width="2"/>`
+    +`<path d="${pathOf(callPts2)}" fill="none" stroke="var(--teal)" stroke-width="2"/>`
+    +axis(b2,C2)
+    +`<text x="${PL}" y="${C2.pt+2}" font-size="11" fill="#6B6A63">f(K)</text>`
+    +areaLabel;
+
+  // discrete sum = actual formula (correction term is 0 here since F=K0)
+  let area=0, putArea=0;
+  for(const K of riemannKs){
+    const c=f(K,sAtm,pSkew,cSkew)*dK;
+    area+=c; if(K<=K0) putArea+=c;
+  }
+  const callArea=area-putArea;
+  const corr=(1/T)*Math.pow(F/K0-1,2);
+  const sig2=Math.max(0,area-corr);
+  document.getElementById('roV').textContent=(100*Math.sqrt(sig2)).toFixed(1);
+  document.getElementById('roS').textContent=sig2.toFixed(4);
+  document.getElementById('roPA').textContent=putArea.toFixed(4);
+  document.getElementById('roCA').textContent=callArea.toFixed(4);
+  document.getElementById('roP').textContent = area>1e-8 ? Math.round(100*putArea/area)+'%' : '&ndash;';
+  if(area<=1e-8) document.getElementById('roP').innerHTML='&ndash;';
+  document.getElementById('zeroMsg').style.display = sig2<1e-6 ? 'block' : 'none';
+}
+document.getElementById('vol').addEventListener('input',render);
+document.getElementById('pskew').addEventListener('input',render);
+document.getElementById('cskew').addEventListener('input',render);
+document.getElementById('bars').addEventListener('change',render);
+render();
+</script>
+</body>
+</html>
