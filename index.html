@@ -101,6 +101,13 @@
   dl.gloss dt:first-child { margin-top: 0; }
   dl.gloss dd { color: var(--muted); margin-left: 0; }
   .term { border-bottom: 1px dotted var(--purple); cursor: help; }
+  .channel-banner {
+    display: block; text-align: center; margin-top: 34px; padding: 13px 18px;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    font-size: 13.5px; color: var(--muted); text-decoration: none; transition: border-color .15s;
+  }
+  .channel-banner:hover { border-color: var(--purple); }
+  .channel-banner b { color: var(--purple-dark); }
   code.f { font-family: Georgia, serif; font-style: italic; }
 </style>
 </head>
@@ -150,7 +157,7 @@
     <div class="controls">
       <div class="ctrl vol">
         <label>시장 전반 불안감 <small>(ATM 내재변동성)</small> <span id="volV">22%</span></label>
-        <input type="range" id="vol" min="0" max="50" value="22" step="1">
+        <input type="range" id="vol" min="0" max="100" value="22" step="1">
       </div>
       <div class="ctrl put">
         <label>하락 공포 <small>(풋 스큐)</small> <span id="pskewV">+12%p</span></label>
@@ -172,13 +179,13 @@
 
     <div class="gauge">
       <div class="gauge-bar">
-        <i style="width:21.5%;background:var(--ok)"></i>
-        <i style="width:14.3%;background:var(--warn)"></i>
-        <i style="width:21.4%;background:var(--hot)"></i>
-        <i style="width:42.8%;background:var(--crisis)"></i>
+        <i style="width:15%;background:var(--ok)"></i>
+        <i style="width:10%;background:var(--warn)"></i>
+        <i style="width:15%;background:var(--hot)"></i>
+        <i style="width:60%;background:var(--crisis)"></i>
       </div>
       <div class="gauge-marker"><b id="gm" style="left:0%"></b></div>
-      <div class="gauge-ticks"><span>0</span><span style="margin-left:-4%">15</span><span style="margin-left:-9%">25</span><span style="margin-left:2%">40</span><span>70</span></div>
+      <div class="gauge-ticks" style="position:relative;display:block;height:16px"><span style="position:absolute;left:0">0</span><span style="position:absolute;left:15%;transform:translateX(-50%)">15</span><span style="position:absolute;left:25%;transform:translateX(-50%)">25</span><span style="position:absolute;left:40%;transform:translateX(-50%)">40</span><span style="position:absolute;right:0">100</span></div>
       <div class="gauge-label" id="gaugeLabel"></div>
       <div class="gauge-ticks" style="justify-content:flex-start;gap:14px;margin-top:6px">
         <span style="color:var(--ok)">&#9632; 15 미만 안정</span>
@@ -225,6 +232,10 @@
       스큐가 깊은 마이너스이고 ATM 변동성이 낮으면 날개 변동성이 0 바닥에 닿아 그 구간 옵션이 아예 무가치해집니다(곡선이 축에 붙는 지점).
     </div>
   </details>
+
+  <a class="channel-banner" href="https://contents.premium.naver.com/finics/bubu" target="_blank" rel="noopener">
+    &#128172; 이런 콘텐츠가 더 궁금하다면 &mdash; <b>닉스의 스몰톡</b> 채널에서 만나요 &rarr;
+  </a>
 </main>
 
 <script>
@@ -255,8 +266,8 @@ function f(K,sAtm,pSkew,cSkew){ return (2/T)*EG*Q(K,sAtm,pSkew,cSkew)/(K*K); }
 // fixed y-scales computed at slider maxima so growth stays visible
 let ymax1=0, ymax2=0;
 for(let K=Kmin;K<=Kmax;K+=2){
-  ymax1=Math.max(ymax1,Q(K,0.50,30,30));
-  ymax2=Math.max(ymax2,f(K,0.50,30,30));
+  ymax1=Math.max(ymax1,Q(K,1.00,30,30));
+  ymax2=Math.max(ymax2,f(K,1.00,30,30));
 }
 ymax1*=1.06; ymax2*=1.06;
 
@@ -355,7 +366,7 @@ function render(){
 
   // gauge
   const gb=bandInfo(vk);
-  document.getElementById('gm').style.left = Math.min(100, vk/70*100)+'%';
+  document.getElementById('gm').style.left = Math.min(100, vk)+'%';
   document.getElementById('gaugeLabel').innerHTML =
     `지금 설정의 VKOSPI <b>${vk.toFixed(1)}</b>은(는) <b style="color:${gb.color}">${gb.name}</b> 구간 &mdash; ${gb.desc}`;
 
